@@ -1,21 +1,26 @@
 from multiprocessing.connection import Client
+from dataclasses import dataclass
+from typing_extensions import Annotated
 
-import click
+import cappa
+
+from nix_auto_push.common import CommonArgs
 
 
-@click.command()
-@click.option(
-    "--socket",
-    "socket_path",
-    help="Socket file to listen to",
-    default="/tmp/nix-auto-push.sock",
-    type=str,
-)
-def main(socket_path):
-    conn = Client(socket_path, family="AF_UNIX")
-    conn.send("Hello from client")
-    conn.close()
-    print("Sent message from client")
+@cappa.command()
+@dataclass(kw_only=True)
+class NixAutoPushClient(CommonArgs):
+    store_path: Annotated[str, cappa.Arg(help="Store path to upload")]
+
+    def __call__(self):
+        conn = Client(self.socket_path, family="AF_UNIX")
+        conn.send(self.store_path)
+        conn.close()
+        print("Sent message from client")
+
+
+def main():
+    _ = cappa.invoke(NixAutoPushClient)
 
 
 if __name__ == "__main__":

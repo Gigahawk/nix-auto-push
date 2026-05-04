@@ -1,27 +1,36 @@
 import sqlite3
 import subprocess
+import threading
 
 
 class JobQueue:
     def __init__(self, path: str, max_attempts: int = 5):
-        self.conn: sqlite3.Connection = self.init_db(path)
+        self._path = path
+        self._local = threading.local()
         self.max_attempts: int = max_attempts
 
-    def init_db(self, path: str) -> sqlite3.Connection:
-        print(f"Initializing database at {path}")
-        conn = sqlite3.connect(path, isolation_level=None)
+        self.init_db()
 
         self.recover_jobs()
 
-        _ = conn.execute("PRAGMA journal_mode=WAL;")
-        _ = conn.execute("PRAGMA synchronous=NORMAL")
+    @property
+    def conn(self) -> sqlite3.Connection:
+        if not hasattr(self._local, "conn"):
+            self._local.conn = sqlite3.connect(self._path, isolation_level=None)
+        return self._local.conn
 
-        _ = conn.executescript(
+    def init_db(self):
+        print(f"Initializing database at {self._path}")
+
+        _ = self.conn.execute("PRAGMA journal_mode=WAL;")
+        _ = self.conn.execute("PRAGMA synchronous=NORMAL")
+
+        _ = self.conn.executescript(
             """
             CREATE TABLE IF NOT EXISTS jobs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 store_path TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'queued'
+                status TEXT NOT NULL DEFAULT 'queued',
                 attempt INTEGER NOT NULL DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 started_at DATETIME,
@@ -34,8 +43,6 @@ class JobQueue:
             CREATE INDEX IF NOT EXISTS idx_jobs_status_id ON jobs(status, id)
             """
         )
-
-        return conn
 
     def recover_jobs(self):
         _ = self.conn.execute("BEGIN IMMEDIATE")
