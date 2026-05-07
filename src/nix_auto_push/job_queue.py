@@ -80,13 +80,22 @@ class JobQueue:
             (store_path,),
         )
 
+    def job_available(self) -> bool:
+        return bool(
+            self.conn.execute("""
+            SELECT store_path
+            FROM jobs
+            WHERE status = 'queued'
+        """).fetchone()
+        )
+
     def start_job(self) -> tuple[int, str] | None:
         _ = self.conn.execute("BEGIN IMMEDIATE")
 
         row = self.conn.execute("""
             UPDATE jobs
-            SET status='running'
-                started_at=CURRENT_TIMESTAMP
+            SET status='running',
+                started_at=CURRENT_TIMESTAMP,
                 attempt = attempt + 1
             WHERE id = (
                 SELECT id FROM jobs
@@ -104,7 +113,7 @@ class JobQueue:
     def finish_job(
         self,
         job_id: int,
-        proc: subprocess.CompletedProcess,
+        proc: subprocess.CompletedProcess | subprocess.CalledProcessError,
         success: bool = True,
     ):
         _ = self.conn.execute("BEGIN IMMEDIATE")
@@ -131,10 +140,10 @@ class JobQueue:
         _ = self.conn.execute(
             """
         UPDATE jobs
-        SET status = ?
-            finished_at = CURRENT_TIMESTAMP
-            exit_code = ?
-            output = ?
+        SET status = ?,
+            finished_at = CURRENT_TIMESTAMP,
+            exit_code = ?,
+            output = ?,
             error = ?
         WHERE id = ?
         """,
