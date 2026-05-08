@@ -24,6 +24,12 @@ class NixAutoPushDaemon(CommonArgs):
             )
         ),
     ] = '/usr/bin/env printf "$OUT_PATH"'
+    network_check_cmd: Annotated[
+        str,
+        cappa.Arg(
+            help=("Command to run to verify the daemon still has a network connection"),
+        ),
+    ] = "true"
     queue_path: Annotated[
         str,
         cappa.Arg(
@@ -87,13 +93,32 @@ class NixAutoPushDaemon(CommonArgs):
                     continue
                 if self.job_queue.job_available():
                     print("Job is available")
-                    self._running_push_workers.append(self.start_push_worker())
+                    if self.has_network():
+                        self._running_push_workers.append(self.start_push_worker())
 
         self.queue_handler_thread = threading.Thread(
             target=_worker,
             daemon=True,
         )
         self.queue_handler_thread.start()
+
+    def has_network(self) -> bool:
+        try:
+            _ = subprocess.run(
+                self.network_check_cmd,
+                shell=True,
+                check=True,
+            )
+            return True
+        except subprocess.CalledProcessError as err:
+            print(f"Network is not available")
+            print(err)
+            print(err.args)
+            print(err.output)
+            print(err.returncode)
+            print(err.stdout)
+            print(err.stderr)
+        return False
 
     def __post_init__(self):
         self.listener: Listener | None = None
