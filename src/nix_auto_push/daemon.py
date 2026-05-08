@@ -24,15 +24,12 @@ class NixAutoPushDaemon(CommonArgs):
             )
         ),
     ] = '/usr/bin/env printf "$OUT_PATH"'
-    verify_cmd: Annotated[
+    network_check_cmd: Annotated[
         str,
         cappa.Arg(
-            help=(
-                "Command to run to verify the nix store path is valid."
-                "The path is available from the $OUT_PATH environment variable"
-            ),
+            help=("Command to run to verify the daemon still has a network connection"),
         ),
-    ] = 'nix-store --verify-path "$OUT_PATH"'
+    ] = "true"
     queue_path: Annotated[
         str,
         cappa.Arg(
@@ -59,29 +56,12 @@ class NixAutoPushDaemon(CommonArgs):
 
     def submit_path(self, store_path: str):
         def _worker(_store_path: str):
-            try:
-                _a = subprocess.run(
-                    self.verify_cmd,
-                    shell=True,
-                    env={**os.environ, "OUT_PATH": _store_path},
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                )
-            except subprocess.CalledProcessError as err:
-                print(f"Verification of store path {_store_path} failed")
-                print(err)
-                print(err.args)
-                print(err.output)
-                print(err.returncode)
-                print(err.stdout)
-                print(err.stderr)
-                return
-            print(f"Submitting store path {_store_path} to queue")
-            if self.job_queue is not None:
-                self.job_queue.submit_job(_store_path)
-            else:
-                print("Error: job queue not initialized?")
+            if self.verify_store_path(_store_path):
+                print(f"Submitting store path {_store_path} to queue")
+                if self.job_queue is not None:
+                    self.job_queue.submit_job(_store_path)
+                else:
+                    print("Error: job queue not initialized?")
 
         t = threading.Thread(
             target=_worker,
@@ -113,13 +93,32 @@ class NixAutoPushDaemon(CommonArgs):
                     continue
                 if self.job_queue.job_available():
                     print("Job is available")
-                    self._running_push_workers.append(self.start_push_worker())
+                    if self.has_network():
+                        self._running_push_workers.append(self.start_push_worker())
 
         self.queue_handler_thread = threading.Thread(
             target=_worker,
             daemon=True,
         )
         self.queue_handler_thread.start()
+
+    def has_network(self) -> bool:
+        try:
+            _ = subprocess.run(
+                self.network_check_cmd,
+                shell=True,
+                check=True,
+            )
+            return True
+        except subprocess.CalledProcessError as err:
+            print(f"Network is not available")
+            print(err)
+            print(err.args)
+            print(err.output)
+            print(err.returncode)
+            print(err.stdout)
+            print(err.stderr)
+        return False
 
     def __post_init__(self):
         self.listener: Listener | None = None
