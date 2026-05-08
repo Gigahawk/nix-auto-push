@@ -1,6 +1,6 @@
 {
   hacks,
-  python,
+  pythonPackage,
   pkgs,
   ...
 }:
