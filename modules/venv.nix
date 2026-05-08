@@ -11,6 +11,7 @@
       ...
     }:
     let
+      pkg-name = import ./_package_name.nix { };
       inherit (self'.packages) python;
       hacks = pkgs.callPackage inputs.pyproject-nix.build.hacks { };
       workspace = inputs.uv2nix.lib.workspace.loadWorkspace { workspaceRoot = ../.; };
@@ -44,9 +45,9 @@
     in
     {
       packages = {
-        _pkg = pythonSet.nix-auto-push;
-        venv = pythonSet.mkVirtualEnv "nix-auto-push-env" workspace.deps.default;
-        editableVenv = editablePythonSet.mkVirtualEnv "nix-auto-push-dev-env" workspace.deps.all;
+        _pkg = pythonSet.${pkg-name};
+        venv = pythonSet.mkVirtualEnv "${pkg-name}-env" workspace.deps.default;
+        editableVenv = editablePythonSet.mkVirtualEnv "${pkg-name}-dev-env" workspace.deps.all;
       };
     };
 }
