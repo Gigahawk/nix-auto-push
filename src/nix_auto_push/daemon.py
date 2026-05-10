@@ -41,6 +41,12 @@ class NixAutoPushDaemon(CommonArgs):
         int,
         cappa.Arg(help="Max number of attempts to push a particular store path"),
     ] = 5
+    delete_attempts: Annotated[
+        int,
+        cappa.Arg(
+            help="Max number of attempts before the push of a particular store path is permanently cancelled"
+        ),
+    ] = 10
     push_workers: Annotated[
         int,
         cappa.Arg(
@@ -190,7 +196,11 @@ class NixAutoPushDaemon(CommonArgs):
         assert self.listener is not None
         print(f"Listening on {self.socket_path}")
 
-        self.job_queue = JobQueue(self.queue_path, max_attempts=self.retry_attempts)
+        self.job_queue = JobQueue(
+            self.queue_path,
+            max_attempts=self.retry_attempts,
+            delete_attempts=self.delete_attempts,
+        )
 
         self.start_queue_handler()
 

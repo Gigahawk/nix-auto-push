@@ -17,9 +17,11 @@ def with_db_lock(fn):
 
 
 class JobQueue:
-    def __init__(self, path: str, max_attempts: int = 5):
+    def __init__(self, path: str, max_attempts: int = 5, delete_attempts: int = 10):
         self._path = path
         self.max_attempts: int = max_attempts
+        self.delete_attempts: int = delete_attempts
+        assert self.max_attempts <= self.delete_attempts
         self.conn = sqlite3.connect(
             self._path,
             isolation_level=None,
@@ -79,24 +81,25 @@ class JobQueue:
         """)
 
         for job_id, store_path, started_at, status, exit_code, output, error in rows:
-            print(
-                (
-                    f"Resetting failed job {job_id} for {store_path}, "
-                    f"previously started at {started_at} and left with status {status}.\n"
-                    f"Return code: {exit_code}\n"
-                    f"Job output: {output}\n"
-                    f"Error: {error}"
+            if status != "cancelled":
+                print(
+                    (
+                        f"Resetting failed job {job_id} for {store_path}, "
+                        f"previously started at {started_at} and left with status {status}.\n"
+                        f"Return code: {exit_code}\n"
+                        f"Job output: {output}\n"
+                        f"Error: {error}"
+                    )
                 )
-            )
-            _ = self.conn.execute(
-                """
-                UPDATE jobs
-                SET status = 'queued',
-                    started_at = NULL
-                WHERE id = ?
-            """,
-                (job_id,),
-            )
+                _ = self.conn.execute(
+                    """
+                    UPDATE jobs
+                    SET status = 'queued',
+                        started_at = NULL
+                    WHERE id = ?
+                """,
+                    (job_id,),
+                )
         _ = self.conn.execute("COMMIT")
 
     @with_db_lock
@@ -159,12 +162,21 @@ class JobQueue:
             ).fetchone()
 
             # Return to queue
-            if int(attempt) < self.max_attempts:
+            attempt = int(attempt)
+            if attempt < self.max_attempts:
                 print(f"Job ID {job_id} failed, requeuing")
                 status = "queued"
-            else:
-                print(f"Job ID {job_id} failed {self.max_attempts} times.")
+            elif attempt < self.delete_attempts:
+                print(
+                    f"Job ID {job_id} failed {attempt} >= {self.max_attempts} times, setting status to failed"
+                )
                 status = "failed"
+            else:
+                pass
+                print(
+                    f"Job ID {job_id} failed {attempt} >= {self.delete_attempts} times, setting status to cancelled"
+                )
+                status = "cancelled"
 
         _ = self.conn.execute(
             """

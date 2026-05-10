@@ -161,9 +161,15 @@
             };
 
             retryAttempts = mkOption {
-              description = "Number of times daemon will reattempt pushing a failed path";
+              description = "Number of times daemon will reattempt pushing a failed path without a daemon restart";
               type = types.int;
               default = 5;
+            };
+
+            deleteAttempts = mkOption {
+              description = "Total number of times daemon will ever attempt pushing a failed path";
+              type = types.int;
+              default = cfg.retryAttempts * 2;
             };
 
             serviceUser = mkOption {
@@ -221,6 +227,7 @@
                       --socket-path ${socketPath} \
                       --network-check-cmd ${cfg.networkCheckCmd} \
                       --retry-attempts ${builtins.toString cfg.retryAttempts} \
+                      --delete-attempts ${builtins.toString cfg.deleteAttempts} \
                       --verify-cmd ${cfg.verifyCmd} \
                       --cmd ${cfg.pushCmd}
                   '';
