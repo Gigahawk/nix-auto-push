@@ -62,7 +62,7 @@
 
               nix-store --verify-path "$OUT_PATH"
 
-              NIX_SSHOPTS="${cfg.sshOpts}"
+              export NIX_SSHOPTS="${cfg.sshOpts}"
 
               nix copy --to "${cfg.targetCopy}" "$OUT_PATH" --debug
             '';
