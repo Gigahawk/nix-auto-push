@@ -54,6 +54,7 @@
             name = defaultPushScriptName;
             runtimeInputs = [
               pkgs.nix
+              pkgs.openssh
             ];
             text = ''
               set -f
