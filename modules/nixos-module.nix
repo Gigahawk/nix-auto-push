@@ -64,7 +64,7 @@
 
               export NIX_SSHOPTS="${cfg.sshOpts}"
 
-              nix copy --to "${cfg.targetCopy}" "$OUT_PATH" --debug
+              nix copy --to "${cfg.targetCopy}" "$OUT_PATH"
             '';
           };
           postBuildHookName = "_nix-auto-push-post-build-hook";
