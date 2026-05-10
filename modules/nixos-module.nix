@@ -62,7 +62,7 @@
 
               nix-store --verify-path "$OUT_PATH"
 
-              nix copy --to "${cfg.targetCopy}" "$OUT_PATH"
+              nix copy --to "${cfg.targetCopy}" "$OUT_PATH" --debug
             '';
           };
           postBuildHookName = "_nix-auto-push-post-build-hook";
