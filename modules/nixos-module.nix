@@ -25,7 +25,8 @@
             mkIf
             types
             ;
-          socketPath = "${cfg.socketDir}/${cfg.socketName}";
+          socketPath = "${cfg.dataDir}/${cfg.socketName}";
+          queuePath = "${cfg.dataDir}/${cfg.queueName}";
           defaultNetworkCheckScriptName = "_nix-auto-push-network-check";
           defaultNetworkCheckScript = pkgs.writeShellApplication {
             name = defaultNetworkCheckScriptName;
@@ -101,10 +102,10 @@
               default = "ssh://${cfg.target}";
             };
 
-            socketDir = mkOption {
-              description = "Directory the daemon will create the socket in";
+            dataDir = mkOption {
+              description = "Directory the daemon will store data in";
               type = types.str;
-              default = "/run/nix-auto-pushd";
+              default = "/var/nix-auto-pushd";
             };
             socketName = mkOption {
               description = "Name of ths socket file created by the daemon";
@@ -112,10 +113,10 @@
               default = "nix-auto-pushd.sock";
             };
 
-            queuePath = mkOption {
-              description = "Path of sqlite job queue";
+            queueName = mkOption {
+              description = "Name of sqlite job queue";
               type = types.str;
-              default = "/var/nix-auto-push/nix-auto-push.sqlite";
+              default = "nix-auto-push.sqlite";
             };
 
             networkCheckCmd = mkOption {
@@ -175,7 +176,7 @@
               #  };
               #};
               tmpfiles.rules = [
-                "d ${cfg.socketDir} 0755 ${cfg.serviceUser} ${cfg.serviceUser} -"
+                "d ${cfg.dataDir} 0755 ${cfg.serviceUser} ${cfg.serviceUser} -"
               ];
               services.nix-auto-pushd = {
                 description = serviceDesc;
@@ -193,7 +194,7 @@
 
                   ExecStart = ''
                     ${pkg}/bin/nix-auto-pushd \
-                      --queue-path ${cfg.queuePath} \
+                      --queue-path ${queuePath} \
                       --socket-path ${socketPath} \
                       --network-check-cmd ${cfg.networkCheckCmd} \
                       --verify-cmd ${cfg.verifyCmd} \
