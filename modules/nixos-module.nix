@@ -156,7 +156,7 @@
                 Options to pass as NIX_SSHOPTS in the pushCmd.
                 Only used by the default pushCmd.
               '';
-              type = types.coercedTo (types.listOf types.str) (from: lib.concatStringSep " " from) types.str;
+              type = types.coercedTo (types.listOf types.str) (from: lib.concatStringsSep " " from) types.str;
               default = [ ];
             };
 
