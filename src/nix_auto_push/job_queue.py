@@ -48,7 +48,7 @@ class JobQueue:
         _ = self.conn.execute("BEGIN IMMEDIATE")
 
         rows = self.conn.execute("""
-            SELECT id, store_path, started_at, status, error
+            SELECT id, store_path, started_at, status, exit_code, output, error
             FROM jobs
             WHERE status NOT IN ('queued', 'done')
         """)
