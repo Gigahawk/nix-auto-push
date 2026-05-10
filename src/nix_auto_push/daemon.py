@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import threading
 import os
 import time
+import sys
 
 import cappa
 
@@ -121,7 +122,7 @@ class NixAutoPushDaemon(CommonArgs):
         return False
 
     def __post_init__(self):
-        self.listener: Listener | None = None
+        self._listener: Listener | None = None
         self.job_queue: JobQueue | None = None
         self.queue_handler_thread: threading.Thread | None = None
         self._running_push_workers: list[threading.Thread] = []
@@ -167,8 +168,26 @@ class NixAutoPushDaemon(CommonArgs):
         t.start()
         return t
 
+    @property
+    def listener(self) -> Listener:
+        if self._listener is None:
+            try:
+                self._listener = Listener(self.socket_path, family="AF_UNIX")
+            except OSError as err:
+                print(err)
+                code = err.args[0]
+                if code == 98:
+                    print("Attempting to delete old socket")
+                    os.remove(self.socket_path)
+                    self._listener = Listener(self.socket_path, family="AF_UNIX")
+                else:
+                    raise err
+
+        return self._listener
+
     def __call__(self):
-        self.listener = Listener(self.socket_path, family="AF_UNIX")
+        sys.stdout.reconfigure(line_buffering=True)
+        assert self.listener is not None
         print(f"Listening on {self.socket_path}")
 
         self.job_queue = JobQueue(self.queue_path, max_attempts=self.retry_attempts)
