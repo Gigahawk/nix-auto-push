@@ -72,14 +72,17 @@
               pkgs.nix
             ];
             text = ''
-              set -eu
+              # Always exit as if we passed, otherwise builds stop working
+              # set -eu
+              set +e
               set -f
               export IFS=' '
               echo "Pushing paths to upload queue $OUT_PATHS"
-              exec nix-auto-push \
+              nix-auto-push \
                 --socket-path ${cfg.socketPath} \
                 --verify-cmd ${cfg.verifyCmd} \
                 "$OUT_PATHS"
+              exit 0
             '';
           };
         in
@@ -145,24 +148,45 @@
             };
 
             users.groups.${defaultGroup} = { };
-            systemd.services.nix-auto-pushd = {
-              description = serviceDesc;
-              wantedBy = [ "multi-user.target" ];
-              after = [ "network-online.target" ];
-              wants = [ "network-online.target" ];
+            systemd = {
+              sockets.nix-auto-pushd = {
+                description = serviceDesc + " (socket)";
 
-              serviceConfig = {
-                User = defaultUser;
-                Group = defaultGroup;
+                wantedBy = [ "sockets.target" ];
 
-                ExecStart = ''
-                  ${pkg}/bin/nix-auto-pushd \
-                    --queue-path ${cfg.queuePath} \
-                    --socket-path ${cfg.socketPath} \
-                    --network-check-cmd ${cfg.networkCheckCmd} \
-                    --verify-cmd ${cfg.verifyCmd} \
-                    --cmd ${cfg.pushCmd}
-                '';
+                socketConfig = {
+                  ListenStream = cfg.socketPath;
+
+                  SocketUser = defaultUser;
+                  SocketGroup = defaultGroup;
+                  SocketMode = "0660";
+
+                  DirectoryMode = "0755";
+                };
+              };
+              services.nix-auto-pushd = {
+                description = serviceDesc;
+                wantedBy = [ "multi-user.target" ];
+                requires = [ "nix-auto-pushd.socket" ];
+                after = [
+                  "network-online.target"
+                  "nix-auto-pushd.socket"
+                ];
+                wants = [ "network-online.target" ];
+
+                serviceConfig = {
+                  User = defaultUser;
+                  Group = defaultGroup;
+
+                  ExecStart = ''
+                    ${pkg}/bin/nix-auto-pushd \
+                      --queue-path ${cfg.queuePath} \
+                      --socket-path ${cfg.socketPath} \
+                      --network-check-cmd ${cfg.networkCheckCmd} \
+                      --verify-cmd ${cfg.verifyCmd} \
+                      --cmd ${cfg.pushCmd}
+                  '';
+                };
               };
             };
 
