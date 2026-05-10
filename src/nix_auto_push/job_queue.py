@@ -127,14 +127,14 @@ class JobQueue:
                 WHERE id = ?
             """,
                 (job_id,),
-            )
+            ).fetchone()
 
             # Return to queue
             if int(attempt) < self.max_attempts:
-                print(f"Job ID {attempt} failed, requeuing")
+                print(f"Job ID {job_id} failed, requeuing")
                 status = "queued"
             else:
-                print(f"Job ID {attempt} failed {self.max_attempts} times.")
+                print(f"Job ID {job_id} failed {self.max_attempts} times.")
                 status = "failed"
 
         _ = self.conn.execute(
