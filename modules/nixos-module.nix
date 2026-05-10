@@ -97,12 +97,17 @@
               description = "Host/domain name of target machine";
               type = types.str;
             };
+            targetUser = mkOption {
+              description = "Username to login to on the target machine";
+              type = types.str;
+              default = cfg.serviceUser;
+            };
             targetCopy = mkOption {
               description = ''
                 Value to pass to the --to argument of nix copy
               '';
               type = types.str;
-              default = "ssh://${cfg.target}";
+              default = "ssh://${cfg.targetUser}@${cfg.target}";
             };
 
             dataDir = mkOption {
