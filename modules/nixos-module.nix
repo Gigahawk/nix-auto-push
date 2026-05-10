@@ -149,28 +149,28 @@
 
             users.groups.${defaultGroup} = { };
             systemd = {
-              sockets.nix-auto-pushd = {
-                description = serviceDesc + " (socket)";
+              #sockets.nix-auto-pushd = {
+              #  description = serviceDesc + " (socket)";
 
-                wantedBy = [ "sockets.target" ];
+              #  wantedBy = [ "sockets.target" ];
 
-                socketConfig = {
-                  ListenStream = cfg.socketPath;
+              #  socketConfig = {
+              #    ListenStream = cfg.socketPath;
 
-                  SocketUser = defaultUser;
-                  SocketGroup = defaultGroup;
-                  SocketMode = "0660";
+              #    SocketUser = defaultUser;
+              #    SocketGroup = defaultGroup;
+              #    SocketMode = "0660";
 
-                  DirectoryMode = "0755";
-                };
-              };
+              #    DirectoryMode = "0755";
+              #  };
+              #};
               services.nix-auto-pushd = {
                 description = serviceDesc;
                 wantedBy = [ "multi-user.target" ];
-                requires = [ "nix-auto-pushd.socket" ];
+                #requires = [ "nix-auto-pushd.socket" ];
                 after = [
                   "network-online.target"
-                  "nix-auto-pushd.socket"
+                  # "nix-auto-pushd.socket"
                 ];
                 wants = [ "network-online.target" ];
 
