@@ -19,14 +19,13 @@
           cfg = config.services.nix-auto-push;
           pkg = perSystem.config.packages.default;
           serviceDesc = "Service to automatically push locally built derivations to a remote cache";
-          defaultUser = "nix-auto-push";
-          defaultGroup = defaultUser;
           inherit (lib)
             mkEnableOption
             mkOption
             mkIf
             types
             ;
+          socketPath = "${cfg.socketDir}/${cfg.socketName}";
           defaultNetworkCheckScriptName = "_nix-auto-push-network-check";
           defaultNetworkCheckScript = pkgs.writeShellApplication {
             name = defaultNetworkCheckScriptName;
@@ -79,7 +78,7 @@
               export IFS=' '
               echo "Pushing paths to upload queue $OUT_PATHS"
               nix-auto-push \
-                --socket-path ${cfg.socketPath} \
+                --socket-path ${socketPath} \
                 --verify-cmd ${cfg.verifyCmd} \
                 "$OUT_PATHS"
               exit 0
@@ -102,10 +101,15 @@
               default = "ssh://${cfg.target}";
             };
 
-            socketPath = mkOption {
-              description = "Path of socket daemon will listen to";
+            socketDir = mkOption {
+              description = "Directory the daemon will create the socket in";
               type = types.str;
-              default = "/run/nix-auto-pushd.sock";
+              default = "/run/nix-auto-pushd";
+            };
+            socketName = mkOption {
+              description = "Name of ths socket file created by the daemon";
+              type = types.str;
+              default = "nix-auto-pushd.sock";
             };
 
             queuePath = mkOption {
@@ -137,17 +141,23 @@
               type = types.str;
               default = "${defaultPushScript}/bin/${defaultPushScriptName}";
             };
+
+            serviceUser = mkOption {
+              description = "User to run the daemon under";
+              type = types.str;
+              default = "nix-auto-push";
+            };
           };
           config = mkIf cfg.enable {
             # TODO: make this configurable?
             # TODO: figure out if user can supply SSH key to this user easily
-            users.users.${defaultUser} = {
-              group = defaultGroup;
+            users.users.${cfg.serviceUser} = {
+              group = cfg.serviceUser;
               isSystemUser = true;
               description = "nix-auto-pushd daemon user";
             };
 
-            users.groups.${defaultGroup} = { };
+            users.groups.${cfg.serviceUser} = { };
             systemd = {
               #sockets.nix-auto-pushd = {
               #  description = serviceDesc + " (socket)";
@@ -155,15 +165,18 @@
               #  wantedBy = [ "sockets.target" ];
 
               #  socketConfig = {
-              #    ListenStream = cfg.socketPath;
+              #    ListenStream = socketPath;
 
-              #    SocketUser = defaultUser;
-              #    SocketGroup = defaultGroup;
+              #    SocketUser = cfg.serviceUser;
+              #    SocketGroup = cfg.serviceUser;
               #    SocketMode = "0660";
 
               #    DirectoryMode = "0755";
               #  };
               #};
+              tmpfiles.rules = [
+                "d ${cfg.socketDir} 0755 ${cfg.serviceUser} ${cfg.serviceUser} -"
+              ];
               services.nix-auto-pushd = {
                 description = serviceDesc;
                 wantedBy = [ "multi-user.target" ];
@@ -175,13 +188,13 @@
                 wants = [ "network-online.target" ];
 
                 serviceConfig = {
-                  User = defaultUser;
-                  Group = defaultGroup;
+                  User = cfg.serviceUser;
+                  Group = cfg.serviceUser;
 
                   ExecStart = ''
                     ${pkg}/bin/nix-auto-pushd \
                       --queue-path ${cfg.queuePath} \
-                      --socket-path ${cfg.socketPath} \
+                      --socket-path ${socketPath} \
                       --network-check-cmd ${cfg.networkCheckCmd} \
                       --verify-cmd ${cfg.verifyCmd} \
                       --cmd ${cfg.pushCmd}
