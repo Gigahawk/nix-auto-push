@@ -220,7 +220,7 @@
                       --queue-path ${queuePath} \
                       --socket-path ${socketPath} \
                       --network-check-cmd ${cfg.networkCheckCmd} \
-                      --retry-attempts ${cfg.retryAttempts}
+                      --retry-attempts ${builtins.toString cfg.retryAttempts}
                       --verify-cmd ${cfg.verifyCmd} \
                       --cmd ${cfg.pushCmd}
                   '';
