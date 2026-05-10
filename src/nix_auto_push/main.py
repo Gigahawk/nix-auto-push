@@ -1,6 +1,7 @@
 from multiprocessing.connection import Client
 from dataclasses import dataclass
 from typing_extensions import Annotated
+from collections.abc import Iterable
 import sys
 
 import cappa
@@ -11,20 +12,34 @@ from nix_auto_push.common import CommonArgs
 @cappa.command()
 @dataclass(kw_only=True)
 class NixAutoPushClient(CommonArgs):
-    store_path: Annotated[str, cappa.Arg(help="Store path to upload")]
+    store_paths: Annotated[list[str], cappa.Arg(help="Store path(s) to upload")]
 
-    def __call__(self):
-        if not self.verify_store_path(self.store_path):
-            sys.exit(1)
-        conn = Client(self.socket_path, family="AF_UNIX")
-        conn.send(self.store_path)
-        conn.close()
-        print("Sent message from client")
+    def __call__(self) -> int:
+        # Ensure we get an iterable
+        if not isinstance(self.store_paths, Iterable):
+            self.store_paths = self.store_paths.split()
+
+        # Handle elements with spaces (i.e. "/nix/store/aaa /nix/store/bbb")
+        store_paths = []
+        for store_path in self.store_paths:
+            store_paths.extend(store_path.split())
+        retcode = 0
+        for store_path in store_paths:
+            if not self.verify_store_path(store_path):
+                retcode += 1
+                continue
+            # Client can't be reused???
+            conn = Client(self.socket_path, family="AF_UNIX")
+            conn.send(store_path)
+            print(f"Sent store path {store_path} from client")
+            conn.close()
+        return retcode
 
 
-def main():
-    _ = cappa.invoke(NixAutoPushClient)
+def main() -> int:
+    # Wrapper will sys.exit with this code
+    return cappa.invoke(NixAutoPushClient)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

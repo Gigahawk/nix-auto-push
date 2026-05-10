@@ -179,10 +179,10 @@ class NixAutoPushDaemon(CommonArgs):
             conn = self.listener.accept()
             try:
                 msg = str(conn.recv())
-                for line in msg.splitlines():
+                for item in msg.split():
                     print("Got message")
-                    print(line)
-                    self.submit_path(line)
+                    print(item)
+                    self.submit_path(item)
             finally:
                 conn.close()
 

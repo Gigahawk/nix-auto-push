@@ -1,0 +1,175 @@
+{
+  self,
+  moduleWithSystem,
+  ...
+}:
+{
+  flake =
+    { config, ... }:
+    {
+      nixosModules.default = moduleWithSystem (
+        perSystem@{ config }:
+        nixos@{
+          config,
+          lib,
+          pkgs,
+          ...
+        }:
+        let
+          cfg = config.services.nix-auto-push;
+          pkg = perSystem.config.packages.default;
+          serviceDesc = "Service to automatically push locally built derivations to a remote cache";
+          defaultUser = "nix-auto-push";
+          defaultGroup = defaultUser;
+          inherit (lib)
+            mkEnableOption
+            mkOption
+            mkIf
+            types
+            ;
+          defaultNetworkCheckScriptName = "_nix-auto-push-network-check";
+          defaultNetworkCheckScript = pkgs.writeShellApplication {
+            name = defaultNetworkCheckScriptName;
+            runtimeInputs = [
+              pkgs.iputils
+            ];
+            text = ''
+              ping -c 1 ${cfg.target}
+            '';
+          };
+          defaultVerifyScriptName = "_nix-auto-push-pkg-check";
+          defaultVerifyScript = pkgs.writeShellApplication {
+            name = defaultVerifyScriptName;
+            runtimeInputs = [
+              pkgs.nix
+            ];
+            text = ''
+              set -f
+              nix-store --verify-path "$OUT_PATH"
+            '';
+          };
+
+          defaultPushScriptName = "_nix-auto-push-push";
+          defaultPushScript = pkgs.writeShellApplication {
+            name = defaultPushScriptName;
+            runtimeInputs = [
+              pkgs.nix
+            ];
+            text = ''
+              set -f
+              set -euo pipefail
+
+              nix-store --verify-path "$OUT_PATH"
+
+              nix copy --to "${cfg.targetCopy}" "$OUT_PATH"
+            '';
+          };
+          postBuildHookName = "_nix-auto-push-post-build-hook";
+          postBuildHook = pkgs.writeShellApplication {
+            name = postBuildHookName;
+            runtimeInputs = [
+              pkg
+              pkgs.nix
+            ];
+            text = ''
+              set -eu
+              set -f
+              export IFS=' '
+              echo "Pushing paths to upload queue $OUT_PATHS"
+              exec nix-auto-push \
+                --socket-path ${cfg.socketPath} \
+                --verify-cmd ${cfg.verifyCmd} \
+                "$OUT_PATHS"
+            '';
+          };
+        in
+        {
+          options.services.nix-auto-push = {
+            enable = mkEnableOption serviceDesc;
+
+            target = mkOption {
+              description = "Host/domain name of target machine";
+              type = types.str;
+            };
+            targetCopy = mkOption {
+              description = ''
+                Value to pass to the --to argument of nix copy
+              '';
+              type = types.str;
+              default = "ssh://${cfg.target}";
+            };
+
+            socketPath = mkOption {
+              description = "Path of socket daemon will listen to";
+              type = types.str;
+              default = "/run/nix-auto-pushd.sock";
+            };
+
+            queuePath = mkOption {
+              description = "Path of sqlite job queue";
+              type = types.str;
+              default = "/var/nix-auto-push/nix-auto-push.sqlite";
+            };
+
+            networkCheckCmd = mkOption {
+              description = "Path to executable that checks if the target server can be reached";
+              type = types.str;
+              default = "${defaultNetworkCheckScript}/bin/${defaultNetworkCheckScriptName}";
+            };
+
+            verifyCmd = mkOption {
+              description = ''
+                Path to executable to verify that a particular store path is in the store and valid.
+                The store path is passed in via the $OUT_PATH variable
+              '';
+              type = types.str;
+              default = "${defaultVerifyScript}/bin/${defaultVerifyScriptName}";
+            };
+
+            pushCmd = mkOption {
+              description = ''
+                Path to executable to push a store path to the target server.
+                The store path is passed in via the $OUT_PATH variable
+              '';
+              type = types.str;
+              default = "${defaultPushScript}/bin/${defaultPushScriptName}";
+            };
+          };
+          config = mkIf cfg.enable {
+            # TODO: make this configurable?
+            # TODO: figure out if user can supply SSH key to this user easily
+            users.users.${defaultUser} = {
+              group = defaultGroup;
+              isSystemUser = true;
+              description = "nix-auto-pushd daemon user";
+            };
+
+            users.groups.${defaultGroup} = { };
+            systemd.services.nix-auto-pushd = {
+              description = serviceDesc;
+              wantedBy = [ "multi-user.target" ];
+              after = [ "network-online.target" ];
+              wants = [ "network-online.target" ];
+
+              serviceConfig = {
+                User = defaultUser;
+                Group = defaultGroup;
+
+                ExecStart = ''
+                  ${pkg}/bin/nix-auto-pushd \
+                    --queue-path ${cfg.queuePath} \
+                    --socket-path ${cfg.socketPath} \
+                    --network-check-cmd ${cfg.networkCheckCmd} \
+                    --verify-cmd ${cfg.verifyCmd} \
+                    --cmd ${cfg.pushCmd}
+                '';
+              };
+            };
+
+            nix.settings.post-build-hook = "${postBuildHook}/bin/${postBuildHookName}";
+          };
+        }
+      );
+
+    };
+}
