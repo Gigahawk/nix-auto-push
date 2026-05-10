@@ -1,24 +1,48 @@
 import sqlite3
 import subprocess
 import threading
+import functools
+
+
+def with_db_lock(fn):
+    @functools.wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        if self.require_lock:
+            with self._lock:
+                return fn(self, *args, **kwargs)
+        else:
+            return fn(self, *args, **kwargs)
+
+    return wrapper
 
 
 class JobQueue:
     def __init__(self, path: str, max_attempts: int = 5):
         self._path = path
-        self._local = threading.local()
         self.max_attempts: int = max_attempts
+        self.conn = sqlite3.connect(
+            self._path,
+            isolation_level=None,
+            check_same_thread=False,
+        )
+        self._lock = threading.Lock()
+
+        # See below for details
+        # https://ricardoanderegg.com/posts/python-sqlite-thread-safety/
+        if sqlite3.threadsafety == 3:
+            print("SQLite thread safety supported, queue access will not be serialized")
+            self.require_lock = False
+        else:
+            print(
+                "WARNING: SQLite thread safety NOT supported, queue access be serialized"
+            )
+            self.require_lock = True
 
         self.init_db()
 
         self.recover_jobs()
 
-    @property
-    def conn(self) -> sqlite3.Connection:
-        if not hasattr(self._local, "conn"):
-            self._local.conn = sqlite3.connect(self._path, isolation_level=None)
-        return self._local.conn
-
+    @with_db_lock
     def init_db(self):
         print(f"Initializing database at {self._path}")
 
@@ -44,6 +68,7 @@ class JobQueue:
             """
         )
 
+    @with_db_lock
     def recover_jobs(self):
         _ = self.conn.execute("BEGIN IMMEDIATE")
 
@@ -74,12 +99,14 @@ class JobQueue:
             )
         _ = self.conn.execute("COMMIT")
 
+    @with_db_lock
     def submit_job(self, store_path: str):
         _ = self.conn.execute(
             "INSERT INTO jobs (store_path, status) VALUES (?, 'queued')",
             (store_path,),
         )
 
+    @with_db_lock
     def job_available(self) -> bool:
         return bool(
             self.conn.execute("""
@@ -89,6 +116,7 @@ class JobQueue:
         """).fetchone()
         )
 
+    @with_db_lock
     def start_job(self) -> tuple[int, str] | None:
         _ = self.conn.execute("BEGIN IMMEDIATE")
 
@@ -110,6 +138,7 @@ class JobQueue:
 
         return row
 
+    @with_db_lock
     def finish_job(
         self,
         job_id: int,
