@@ -62,6 +62,8 @@
 
               nix-store --verify-path "$OUT_PATH"
 
+              NIX_SSHOPTS="${cfg.sshOpts}"
+
               nix copy --to "${cfg.targetCopy}" "$OUT_PATH" --debug
             '';
           };
@@ -144,6 +146,21 @@
               default = "${defaultPushScript}/bin/${defaultPushScriptName}";
             };
 
+            sshOpts = mkOption {
+              description = ''
+                Options to pass as NIX_SSHOPTS in the pushCmd.
+                Only used by the default pushCmd.
+              '';
+              type = types.coercedTo (types.listOf types.str) (from: lib.concatStringSep " " from) types.str;
+              default = [ ];
+            };
+
+            retryAttempts = mkOption {
+              description = "Number of times daemon will reattempt pushing a failed path";
+              type = types.int;
+              default = 5;
+            };
+
             serviceUser = mkOption {
               description = "User to run the daemon under";
               type = types.str;
@@ -198,6 +215,7 @@
                       --queue-path ${queuePath} \
                       --socket-path ${socketPath} \
                       --network-check-cmd ${cfg.networkCheckCmd} \
+                      --retry-attempts ${cfg.retryAttempts}
                       --verify-cmd ${cfg.verifyCmd} \
                       --cmd ${cfg.pushCmd}
                   '';
