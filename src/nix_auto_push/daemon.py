@@ -145,6 +145,7 @@ class NixAutoPushDaemon(CommonArgs):
         return False
 
     def __post_init__(self):
+        super().__post_init__()
         self._listener: Listener | None = None
         self.job_queue: JobQueue | None = None
         self.queue_handler_thread: threading.Thread | None = None
@@ -163,7 +164,7 @@ class NixAutoPushDaemon(CommonArgs):
                     text=True,
                     check=True,
                 )
-                logger.info(f"Push of store_path {_store_path} successful")
+                logger.success(f"Push of store_path {_store_path} successful")
                 logger.debug(_res.stdout)
                 logger.debug(_res.stderr)
             except subprocess.CalledProcessError as err:

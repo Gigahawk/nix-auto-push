@@ -84,6 +84,7 @@
               nix-auto-push \
                 --socket-path ${socketPath} \
                 --verify-cmd ${cfg.verifyCmd} \
+                --log-level ${cfg.logLevel} \
                 "$OUT_PATHS"
               exit 0
             '';
@@ -172,6 +173,12 @@
               default = cfg.retryAttempts * 2;
             };
 
+            logLevel = mkOption {
+              description = "Log level";
+              type = types.str;
+              default = "info";
+            };
+
             serviceUser = mkOption {
               description = "User to run the daemon under";
               type = types.str;
@@ -229,6 +236,7 @@
                       --retry-attempts ${builtins.toString cfg.retryAttempts} \
                       --delete-attempts ${builtins.toString cfg.deleteAttempts} \
                       --verify-cmd ${cfg.verifyCmd} \
+                      --log-level ${cfg.logLevel} \
                       --cmd ${cfg.pushCmd}
                   '';
                 };

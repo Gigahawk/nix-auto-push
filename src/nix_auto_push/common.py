@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing_extensions import Annotated
 import subprocess
 import os
+import sys
 
 import cappa
 from loguru import logger
@@ -24,6 +25,21 @@ class CommonArgs:
             ),
         ),
     ] = 'nix-store --verify-path "$OUT_PATH"'
+    log_level: Annotated[
+        str,
+        cappa.Arg(
+            short=True,
+            long=True,
+            help=("Log level"),
+        ),
+    ] = "info"
+
+    def __post_init__(self):
+        self.setup_logger()
+
+    def setup_logger(self):
+        logger.remove()
+        _ = logger.add(sys.stderr, level=self.log_level.upper())
 
     def verify_store_path(self, store_path: str) -> bool:
         try:
