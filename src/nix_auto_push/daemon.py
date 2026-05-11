@@ -164,8 +164,8 @@ class NixAutoPushDaemon(CommonArgs):
                     check=True,
                 )
                 logger.info(f"Push of store_path {_store_path} successful")
-                logger.info(_res.stdout)
-                logger.info(_res.stderr)
+                logger.debug(_res.stdout)
+                logger.debug(_res.stderr)
             except subprocess.CalledProcessError as err:
                 logger.error(f"Push of store path {_store_path} failed")
                 logger.error(err)
