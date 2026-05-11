@@ -110,7 +110,7 @@ class NixAutoPushDaemon(CommonArgs):
                     )
                     continue
                 if self.job_queue.job_available():
-                    logger.info("Job is available")
+                    logger.debug("Job is available")
                     if self.has_network():
                         self._running_push_workers.append(self.start_push_worker())
 
