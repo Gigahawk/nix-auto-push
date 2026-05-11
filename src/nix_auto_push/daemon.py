@@ -1,4 +1,5 @@
 from multiprocessing.connection import Listener
+from sqlite3 import Time
 import subprocess
 from typing_extensions import Annotated
 from dataclasses import dataclass
@@ -32,6 +33,13 @@ class NixAutoPushDaemon(CommonArgs):
             help=("Command to run to verify the daemon still has a network connection"),
         ),
     ] = "true"
+    network_check_timeout: Annotated[
+        int,
+        cappa.Arg(
+            short="-nt",
+            help="Time in seconds to wait for --network-check-cmd to pass",
+        ),
+    ] = 1
     queue_path: Annotated[
         str,
         cappa.Arg(
@@ -116,16 +124,22 @@ class NixAutoPushDaemon(CommonArgs):
         try:
             _ = subprocess.run(
                 self.network_check_cmd,
+                capture_output=True,
+                timeout=self.network_check_timeout,
                 shell=True,
                 check=True,
             )
             return True
-        except subprocess.CalledProcessError as err:
+        except (
+            subprocess.CalledProcessError,
+            subprocess.TimeoutExpired,
+        ) as err:
             logger.error("Network is not available")
             logger.error(err)
             logger.error(err.args)
             logger.error(err.output)
-            logger.error(err.returncode)
+            if _ret := getattr(err, "returncode", None) is not None:
+                logger.error(f"Return code: {_ret}")
             logger.error(err.stdout)
             logger.error(err.stderr)
         return False
