@@ -3,6 +3,8 @@ import subprocess
 import threading
 import functools
 
+from loguru import logger
+
 
 def with_db_lock(fn):
     @functools.wraps(fn)
@@ -32,11 +34,13 @@ class JobQueue:
         # See below for details
         # https://ricardoanderegg.com/posts/python-sqlite-thread-safety/
         if sqlite3.threadsafety == 3:
-            print("SQLite thread safety supported, queue access will not be serialized")
+            logger.debug(
+                "SQLite thread safety supported, queue access will not be serialized"
+            )
             self.require_lock = False
         else:
-            print(
-                "WARNING: SQLite thread safety NOT supported, queue access be serialized"
+            logger.warning(
+                "SQLite thread safety NOT supported, queue access be serialized"
             )
             self.require_lock = True
 
@@ -46,7 +50,7 @@ class JobQueue:
 
     @with_db_lock
     def init_db(self):
-        print(f"Initializing database at {self._path}")
+        logger.info(f"Initializing database at {self._path}")
 
         _ = self.conn.execute("PRAGMA journal_mode=WAL;")
         _ = self.conn.execute("PRAGMA synchronous=NORMAL")
@@ -82,7 +86,7 @@ class JobQueue:
 
         for job_id, store_path, started_at, status, exit_code, output, error in rows:
             if status != "cancelled":
-                print(
+                logger.warning(
                     (
                         f"Resetting failed job {job_id} for {store_path}, "
                         f"previously started at {started_at} and left with status {status}.\n"
@@ -164,16 +168,15 @@ class JobQueue:
             # Return to queue
             attempt = int(attempt)
             if attempt < self.max_attempts:
-                print(f"Job ID {job_id} failed, requeuing")
+                logger.error(f"Job ID {job_id} failed, requeuing")
                 status = "queued"
             elif attempt < self.delete_attempts:
-                print(
+                logger.error(
                     f"Job ID {job_id} failed {attempt} >= {self.max_attempts} times, setting status to failed"
                 )
                 status = "failed"
             else:
-                pass
-                print(
+                logger.critical(
                     f"Job ID {job_id} failed {attempt} >= {self.delete_attempts} times, setting status to cancelled"
                 )
                 status = "cancelled"

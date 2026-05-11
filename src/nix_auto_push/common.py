@@ -4,6 +4,7 @@ import subprocess
 import os
 
 import cappa
+from loguru import logger
 
 
 @dataclass
@@ -26,7 +27,7 @@ class CommonArgs:
 
     def verify_store_path(self, store_path: str) -> bool:
         try:
-            print(f"Verifying store path {store_path}")
+            logger.info(f"Verifying store path {store_path}")
             _ = subprocess.run(
                 self.verify_cmd,
                 shell=True,
@@ -37,11 +38,11 @@ class CommonArgs:
             )
             return True
         except subprocess.CalledProcessError as err:
-            print(f"Verification of store path {store_path} failed")
-            print(err)
-            print(err.args)
-            print(err.output)
-            print(err.returncode)
-            print(err.stdout)
-            print(err.stderr)
+            loguru.error(f"Verification of store path {store_path} failed")
+            loguru.error(err)
+            loguru.error(err.args)
+            loguru.error(err.output)
+            loguru.error(err.returncode)
+            loguru.error(err.stdout)
+            loguru.error(err.stderr)
         return False

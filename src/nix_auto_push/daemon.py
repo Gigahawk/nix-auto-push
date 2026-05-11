@@ -8,6 +8,7 @@ import time
 import sys
 
 import cappa
+from loguru import logger
 
 from nix_auto_push.job_queue import JobQueue
 from nix_auto_push.common import CommonArgs
@@ -64,11 +65,11 @@ class NixAutoPushDaemon(CommonArgs):
     def submit_path(self, store_path: str):
         def _worker(_store_path: str):
             if self.verify_store_path(_store_path):
-                print(f"Submitting store path {_store_path} to queue")
+                logger.info(f"Submitting store path {_store_path} to queue")
                 if self.job_queue is not None:
                     self.job_queue.submit_job(_store_path)
                 else:
-                    print("Error: job queue not initialized?")
+                    logger.critical("Job queue not initialized?")
 
         t = threading.Thread(
             target=_worker,
@@ -82,7 +83,7 @@ class NixAutoPushDaemon(CommonArgs):
             self.queue_handler_thread is not None
             and self.queue_handler_thread.is_alive()
         ):
-            print("Queue handling thread already started, not restarting")
+            logger.debug("Queue handling thread already started, not restarting")
             return
 
         def _worker():
@@ -96,10 +97,12 @@ class NixAutoPushDaemon(CommonArgs):
                     continue
 
                 if self.job_queue is None:
-                    print("Error: job queue not initialized in queue handler?")
+                    logger.critical(
+                        "Error: job queue not initialized in queue handler?"
+                    )
                     continue
                 if self.job_queue.job_available():
-                    print("Job is available")
+                    logger.info("Job is available")
                     if self.has_network():
                         self._running_push_workers.append(self.start_push_worker())
 
@@ -118,13 +121,13 @@ class NixAutoPushDaemon(CommonArgs):
             )
             return True
         except subprocess.CalledProcessError as err:
-            print(f"Network is not available")
-            print(err)
-            print(err.args)
-            print(err.output)
-            print(err.returncode)
-            print(err.stdout)
-            print(err.stderr)
+            logger.error("Network is not available")
+            logger.error(err)
+            logger.error(err.args)
+            logger.error(err.output)
+            logger.error(err.returncode)
+            logger.error(err.stdout)
+            logger.error(err.stderr)
         return False
 
     def __post_init__(self):
@@ -146,26 +149,26 @@ class NixAutoPushDaemon(CommonArgs):
                     text=True,
                     check=True,
                 )
-                print(f"Push of store_path {_store_path} successful")
-                print(_res.stdout)
-                print(_res.stderr)
+                logger.info(f"Push of store_path {_store_path} successful")
+                logger.info(_res.stdout)
+                logger.info(_res.stderr)
             except subprocess.CalledProcessError as err:
-                print(f"Push of store path {_store_path} failed")
-                print(err)
-                print(err.args)
-                print(err.output)
-                print(err.returncode)
-                print(err.stdout)
-                print(err.stderr)
+                logger.error(f"Push of store path {_store_path} failed")
+                logger.error(err)
+                logger.error(err.args)
+                logger.error(err.output)
+                logger.error(err.returncode)
+                logger.error(err.stdout)
+                logger.error(err.stderr)
                 if self.job_queue is not None:
                     self.job_queue.finish_job(job_id, err, success=False)
                 else:
-                    print("Error: job queue not initialized?")
+                    logger.critical("Error: job queue not initialized?")
                 return
             if self.job_queue is not None:
                 self.job_queue.finish_job(job_id, _res)
             else:
-                print("Error: job queue not initialized?")
+                logger.critical("Error: job queue not initialized?")
 
         t = threading.Thread(
             target=_worker,
@@ -180,10 +183,10 @@ class NixAutoPushDaemon(CommonArgs):
             try:
                 self._listener = Listener(self.socket_path, family="AF_UNIX")
             except OSError as err:
-                print(err)
+                logger.error(err)
                 code = err.args[0]
                 if code == 98:
-                    print("Attempting to delete old socket")
+                    logger.warning("Attempting to delete old socket")
                     os.remove(self.socket_path)
                     self._listener = Listener(self.socket_path, family="AF_UNIX")
                 else:
@@ -194,7 +197,7 @@ class NixAutoPushDaemon(CommonArgs):
     def __call__(self):
         sys.stdout.reconfigure(line_buffering=True)
         assert self.listener is not None
-        print(f"Listening on {self.socket_path}")
+        logger.info(f"Listening on {self.socket_path}")
 
         self.job_queue = JobQueue(
             self.queue_path,
@@ -209,8 +212,8 @@ class NixAutoPushDaemon(CommonArgs):
             try:
                 msg = str(conn.recv())
                 for item in msg.split():
-                    print("Got message")
-                    print(item)
+                    logger.info("Got message")
+                    logger.info(item)
                     self.submit_path(item)
             finally:
                 conn.close()

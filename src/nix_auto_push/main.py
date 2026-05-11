@@ -5,6 +5,7 @@ from collections.abc import Iterable
 import sys
 
 import cappa
+from loguru import logger
 
 from nix_auto_push.common import CommonArgs
 
@@ -31,7 +32,7 @@ class NixAutoPushClient(CommonArgs):
             # Client can't be reused???
             conn = Client(self.socket_path, family="AF_UNIX")
             conn.send(store_path)
-            print(f"Sent store path {store_path} from client")
+            logger.info(f"Sent store path {store_path} from client")
             conn.close()
         return retcode
 
