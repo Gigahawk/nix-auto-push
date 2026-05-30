@@ -4,8 +4,15 @@
   perSystem =
     {
       pkgs,
+      lib,
+      config,
       ...
     }:
+    let
+      libDir = "${config.packages.venv}/lib";
+      pyDir = builtins.head (builtins.attrNames (builtins.readDir libDir));
+      siteDir = "${libDir}/${pyDir}/site-packages";
+    in
     {
       treefmt = {
         projectRootFile = "flake.nix";
@@ -15,6 +22,15 @@
         # python
         programs.ruff-check.enable = true;
         programs.ruff-format.enable = true;
+        programs.mypy = {
+          enable = true;
+          directories = {
+            "" = {
+              options = [ "--check-untyped-defs" ];
+              extraPythonPaths = [ siteDir ];
+            };
+          };
+        };
 
         # toml
         programs.taplo.enable = true;

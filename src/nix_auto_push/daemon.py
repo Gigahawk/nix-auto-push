@@ -1,7 +1,9 @@
 from multiprocessing.connection import Listener
 import subprocess
 from typing_extensions import Annotated
-from dataclasses import dataclass
+from typing import cast
+from io import TextIOWrapper
+from dataclasses import dataclass, field
 import threading
 import os
 import time
@@ -68,6 +70,11 @@ class NixAutoPushDaemon(CommonArgs):
             help="Seconds between checks to see if push jobs are available",
         ),
     ] = 1
+
+    _running_push_workers: list[threading.Thread] = field(init=False)
+    _listener: Listener | None = field(init=False)
+    job_queue: JobQueue | None = field(init=False)
+    queue_handler_thread: threading.Thread | None = field(init=False)
 
     def submit_path(self, store_path: str):
         def _worker(_store_path: str):
@@ -145,12 +152,14 @@ class NixAutoPushDaemon(CommonArgs):
 
     def __post_init__(self):
         super().__post_init__()
-        self._listener: Listener | None = None
-        self.job_queue: JobQueue | None = None
-        self.queue_handler_thread: threading.Thread | None = None
-        self._running_push_workers: list[threading.Thread] = []
+        self.queue_handler_thread = None
+        self.job_queue = None
+        self._listener = None
+        self._running_push_workers = []
 
     def start_push_worker(self):
+        if self.job_queue is None:
+            raise RuntimeError("Job queue was not initialized?")
         job_id, store_path = self.job_queue.start_job()
 
         def _worker(_store_path: str):
@@ -209,7 +218,10 @@ class NixAutoPushDaemon(CommonArgs):
         return self._listener
 
     def __call__(self):
+        # Ensure sys.stdout is a TextIOWrapper to satisfy mypy
+        sys.stdout = cast(TextIOWrapper, sys.stdout)
         sys.stdout.reconfigure(line_buffering=True)
+
         assert self.listener is not None
         logger.info(f"Listening on {self.socket_path}")
 

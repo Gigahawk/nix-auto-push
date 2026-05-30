@@ -32,15 +32,16 @@
         "uv2nix": "uv2nix"
       },
       "locked": {
-        "lastModified": 1778274345,
-        "narHash": "sha256-CISzWWiZJgLLzpQ223tYNBNywD1O/Rbp1KwmTVVQhJM=",
+        "lastModified": 1780133570,
+        "narHash": "sha256-VBFAK17aCAB9yYklfFqzmyISIQwjMha+cG42eh62U/g=",
         "owner": "Gigahawk",
         "repo": "flake-parts-python",
-        "rev": "6bbedcd0640bdba642b63b6537aa93c7136a2247",
+        "rev": "9d450cded8b598a52388872db993cf9fd498d454",
         "type": "github"
       },
       "original": {
         "owner": "Gigahawk",
+        "ref": "venv-export-test",
         "repo": "flake-parts-python",
         "type": "github"
       }

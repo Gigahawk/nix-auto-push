@@ -13,7 +13,10 @@ from nix_auto_push.common import CommonArgs
 @cappa.command()
 @dataclass(kw_only=True)
 class NixAutoPushClient(CommonArgs):
-    store_paths: Annotated[list[str], cappa.Arg(help="Store path(s) to upload")]
+    # Ignore mypy error 'Attributes without a default cannot follow attributes with one'
+    # For normal instantiation of dataclasses this would be problematic but because
+    # we always invoke with Cappa it doesn't matter
+    store_paths: Annotated[list[str], cappa.Arg(help="Store path(s) to upload")]  # type: ignore[misc]
 
     def __call__(self) -> int:
         # Ensure we get an iterable

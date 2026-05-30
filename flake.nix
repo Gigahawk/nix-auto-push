@@ -9,7 +9,7 @@
     };
 
     flake-parts-python = {
-      url = "github:Gigahawk/flake-parts-python";
+      url = "github:Gigahawk/flake-parts-python/venv-export-test";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
