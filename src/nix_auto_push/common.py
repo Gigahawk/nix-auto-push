@@ -54,11 +54,11 @@ class CommonArgs:
             )
             return True
         except subprocess.CalledProcessError as err:
-            loguru.error(f"Verification of store path {store_path} failed")
-            loguru.error(err)
-            loguru.error(err.args)
-            loguru.error(err.output)
-            loguru.error(err.returncode)
-            loguru.error(err.stdout)
-            loguru.error(err.stderr)
+            logger.error(f"Verification of store path {store_path} failed")
+            logger.error(err)
+            logger.error(err.args)
+            logger.error(err.output)
+            logger.error(err.returncode)
+            logger.error(err.stdout)
+            logger.error(err.stderr)
         return False

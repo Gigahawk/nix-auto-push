@@ -11,10 +11,7 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [
-    "cappa>=0.31.0",
-    "loguru>=0.7.3",
-]
+dependencies = ["cappa>=0.31.0", "loguru>=0.7.3"]
 
 [project.scripts]
 nix-auto-pushd = "nix_auto_push.daemon:main"
